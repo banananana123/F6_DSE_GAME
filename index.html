@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中六打氣日 - 電流急急棒挑戰</title>
+    <style>
+        /* --- 樣式保持不變，與之前版本相同 --- */
+        :root {
+            --primary-color: #FF9F1C;
+            --secondary-color: #2EC4B6;
+            --danger-color: #E71D36;
+            --bg-color: #FDFFFC;
+            --text-color: #011627;
+        }
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        header { background: linear-gradient(135deg, var(--primary-color), #FFBF69); width: 100%; padding: 20px 0; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; }
+        h1 { margin: 0; font-size: 2.5rem; }
+        .subtitle { font-size: 1.2rem; opacity: 0.9; margin-top: 5px; }
+        .container { width: 90%; max-width: 1000px; margin-top: 30px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .game-panel { text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; }
+        .game-panel.penalty-flash { animation: flashRed 0.5s ease; }
+        @keyframes flashRed { 0% { background-color: white; } 50% { background-color: rgba(231, 29, 54, 0.3); } 100% { background-color: white; } }
+        .timer-display { font-size: 6rem; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background-color: #eee; font-weight: bold; margin-bottom: 20px; font-size: 1.2rem; }
+        .stats-row { display: flex; gap: 30px; margin-top: 20px; }
+        .stat-item { font-size: 1.5rem; }
+        .stat-label { font-size: 0.9rem; color: #666; display: block;}
+        .stat-value { font-weight: bold; color: var(--danger-color); }
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .control-panel { text-align: center; }
+        .btn { background-color: var(--secondary-color); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.2s; width: 100%; margin-bottom: 10px; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-mode { background-color: #2B2D42; }
+        .btn-delete { background: none; border: none; cursor: pointer; font-size: 1.1rem; opacity: 0.3; transition: opacity 0.2s, transform 0.2s; padding: 5px; }
+        .btn-delete:hover { opacity: 1; transform: scale(1.2); color: var(--danger-color); }
+        .mode-switch { display: flex; background: #eee; border-radius: 8px; padding: 5px; margin-bottom: 15px; }
+        .mode-option { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.3s; }
+        .mode-option.active { background: white; color: var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .leaderboard-table th { text-align: left; color: #888; padding: 5px; border-bottom: 1px solid #eee;}
+        .leaderboard-table td { padding: 8px 5px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .rank-1 { color: #FFD700; font-weight: bold; }
+        .rank-2 { color: #C0C0C0; font-weight: bold; }
+        .rank-3 { color: #CD7F32; font-weight: bold; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: white; padding: 30px; border-radius: 15px; text-align: center; width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal input { width: 80%; padding: 10px; font-size: 1.2rem; margin: 15px 0; border: 2px solid #eee; border-radius: 5px; text-align: center; }
+        footer { margin-top: auto; padding: 20px; color: #888; text-align: center; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>⚡ DSE 加油站 ⚡</h1>
+    <div class="subtitle">電流急急棒挑戰 - 博盡無悔，勇往直前！</div>
+</header>
+
+<div class="container">
+    <div class="card game-panel" id="gamePanel">
+        <div class="status-badge" id="statusText">等待連接...</div>
+        <div class="timer-display" id="timer">00.00</div>
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-label" id="penaltyLabel">罰時 (+3s)</span>
+                <span class="stat-value" id="penaltyCount">0</span>
+            </div>
+        </div>
+        <h2 id="finalMsg" style="color: var(--secondary-color); display:none;">Challenge Complete!</h2>
+    </div>
+
+    <div class="sidebar">
+        <div class="card control-panel">
+            <div class="mode-switch">
+                <div class="mode-option active" onclick="setMode('competition')">🏆 比賽模式</div>
+                <div class="mode-option" onclick="setMode('diy')">🛠️ DIY 模式</div>
+            </div>
+
+            <button class="btn" onclick="connectMicrobit()" style="background-color: #007bff;">🔗 電腦 (USB) 連接</button>
+            <button class="btn" onclick="connectBluetooth()" style="background-color: #6610f2;">📶 iPad (藍牙) 連接</button>
+            
+            <button class="btn btn-mode" onclick="resetGame()" style="background:#666; margin-top: 10px;">🔄 重置遊戲</button>
+            <p style="font-size: 0.8rem; color:#999;">iPad 請使用 Bluefy App 打開此網頁</p>
+        </div>
+
+        <div class="card" id="leaderboardCard">
+            <h3>🏅 龍虎榜 (Top 10)</h3>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr><th>#</th><th>姓名</th><th>成績</th><th style="width: 30px;"></th></tr>
+                </thead>
+                <tbody id="leaderboardBody"></tbody>
+            </table>
+            <button class="btn" onclick="clearLeaderboard()" style="background:transparent; color:#999; font-size:0.8rem; margin-top:10px;">清除所有紀錄</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="resultModal">
+    <div class="modal">
+        <h2>🎉 挑戰成功！</h2>
+        <p id="modalScoreText">最終成績: 15.30s</p>
+        <div id="competitionInput">
+            <p>留下你的大名：</p>
+            <input type="text" id="playerName" placeholder="輸入姓名" maxlength="8">
+            <button class="btn" onclick="saveScore()">提交成績</button>
+        </div>
+        <div id="diyInput" style="display:none;">
+            <p style="color: #666">繼續加油！</p>
+            <button class="btn" onclick="closeModal()">再來一次</button>
+        </div>
+    </div>
+</div>
+
+<footer>
+    DSE 2025 FIGHTING! &copy; 中六打氣日籌委會
+</footer>
+
+<audio id="soundStart" src="start.mp3"></audio>
+<audio id="soundFail" src="fail.mp3"></audio>
+<audio id="soundWin" src="win.mp3"></audio>
+<audio id="soundBgm" src="bgm.mp3" loop></audio>
+
+<script>
+    // --- 變量與設定 ---
+    let port, reader;
+    let bluetoothDevice, bluetoothCharacteristic;
+    let mode = 'competition'; 
+    let isConnected = false;
+    let gameState = 'IDLE'; 
+    let startTime = 0;
+    let timerInterval;
+    let penaltyCount = 0;
+    let penaltyTimeAdded = 0;
+    
+    const PENALTY_SECONDS = 3;
+
+    // --- 初始化 ---
+    updateUIForMode();
+    renderLeaderboard();
+
+    // --- 模式切換 ---
+    function setMode(newMode) {
+        mode = newMode;
+        document.querySelectorAll('.mode-option').forEach(el => el.classList.remove('active'));
+        if(mode === 'competition') document.querySelectorAll('.mode-option')[0].classList.add('active');
+        else document.querySelectorAll('.mode-option')[1].classList.add('active');
+        resetGame();
+        updateUIForMode();
+    }
+
+    function updateUIForMode() {
+        if (mode === 'competition') {
+            document.getElementById('penaltyLabel').innerText = `罰時 (+${PENALTY_SECONDS}s)`;
+            document.getElementById('leaderboardCard').style.display = 'block';
+        } else {
+            document.getElementById('penaltyLabel').innerText = `觸碰次數`;
+            document.getElementById('leaderboardCard').style.display = 'none';
+        }
+    }
+
+    // ================= USB 連接 (電腦) =================
+    async function connectMicrobit() {
+        if ("serial" in navigator) {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                isConnected = true;
+                updateConnectionStatus("✅ USB 已連接", "#D1E7DD", "#0F5132");
+                readSerialLoop();
+            } catch (err) {
+                console.error(err);
+                alert("USB 連接失敗：" + err);
+            }
+        } else {
+            alert("此瀏覽器不支持 USB 連接，請使用 Chrome/Edge，iPad 請使用藍牙。");
+        }
+    }
+
+    async function readSerialLoop() {
+        const textDecoder = new TextDecoderStream();
+        const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+        reader = textDecoder.readable.getReader();
+        let buffer = "";
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) {
+                    buffer += value;
+                    let lines = buffer.split("\n");
+                    buffer = lines.pop(); 
+                    for (let line of lines) processCommand(line.trim());
+                }
+            }
+        } catch (error) { console.error(error); }
+    }
+
+    // ================= 藍牙連接 (iPad/Bluefy) =================
+    async function connectBluetooth() {
+        // Nordic UART Service UUIDs
+        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // 用於發送數據到 microbit (未使用)
+        const UART_RX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // 用於接收 microbit 數據
+
+        if (!navigator.bluetooth) {
+            alert("您的瀏覽器不支持藍牙！iPad 請下載 'Bluefy' App 來打開此網頁。");
+            return;
+        }
+
+        try {
+            updateConnectionStatus("⏳ 搜索設備中...", "#FFF3CD", "#856404");
+            
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: "BBC micro:bit" }],
+                optionalServices: [UART_SERVICE_UUID]
+            });
+
+            const server = await bluetoothDevice.gatt.connect();
+            const service = await server.getPrimaryService(UART_SERVICE_UUID);
+            bluetoothCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
+
+            await bluetoothCharacteristic.startNotifications();
+            bluetoothCharacteristic.addEventListener('characteristicvaluechanged', handleBluetoothData);
+
+            isConnected = true;
+            updateConnectionStatus("✅ 藍牙已連接", "#D1E7DD", "#0F5132");
+
+            bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+                isConnected = false;
+                updateConnectionStatus("❌ 藍牙已斷開", "#F8D7DA", "#721C24");
+            });
+
+        } catch (error) {
+            console.error(error);
+            alert("藍牙連接失敗：" + error);
+            updateConnectionStatus("等待連接...", "#eee", "#000");
+        }
+    }
+
+    let btBuffer = "";
+    function handleBluetoothData(event) {
+        const value = event.target.value;
+        const decoder = new TextDecoder();
+        const str = decoder.decode(value);
+        
+        // 藍牙數據可能也會分段，處理方式同 Serial
+        btBuffer += str;
+        let lines = btBuffer.split("\n");
+        // 如果最後一個字符不是換行符，說明這行沒傳完，保留到 buffer
+        if (!btBuffer.endsWith("\n")) {
+             btBuffer = lines.pop();
+        } else {
+             btBuffer = "";
+             lines.pop(); // 去掉最後一個空字串
+        }
+
+        for (let line of lines) {
+            processCommand(line.trim());
+        }
+    }
+
+    function updateConnectionStatus(text, bg, color) {
+        const badge = document.getElementById('statusText');
+        badge.innerText = text;
+        badge.style.background = bg;
+        badge.style.color = color;
+    }
+
+    // ================= 通用遊戲邏輯 (USB/BT 共用) =================
+    function processCommand(cmd) {
+        // 清理數據中的非打印字符
+        cmd = cmd.replace(/[\r\n]+/g, "").trim(); 
+        console.log("收到指令:", cmd);
+
+        if (cmd === "READY") {
+            resetGameUI();
+            gameState = 'READY';
+            document.getElementById('statusText').innerText = "⚠️ 準備就緒 - 請離開起點";
+        } 
+        else if (cmd === "START") {
+            if (gameState !== 'RUNNING') startGame();
+        } 
+        else if (cmd === "PENALTY") {
+            handlePenalty();
+        } 
+        else if (cmd.startsWith("WIN:")) {
+            finishGame();
+        } 
+        else if (cmd === "RESET") {
+            resetGame();
+        }
+    }
+
+    function startGame() {
+        gameState = 'RUNNING';
+        startTime = Date.now();
+        penaltyCount = 0;
+        penaltyTimeAdded = 0;
+        
+        document.getElementById('statusText').innerText = "🔥 挑戰進行中！";
+        document.getElementById('statusText').style.background = "#FFE69C";
+        document.getElementById('statusText').style.color = "#664D03";
+        
+        playSound('start');
+        playSound('bgm');
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimerDisplay, 33);
+    }
+
+    function handlePenalty() {
+        if (gameState !== 'RUNNING') return;
+        penaltyCount++;
+        playSound('fail');
+        const panel = document.getElementById('gamePanel');
+        panel.classList.remove('penalty-flash');
+        void panel.offsetWidth; 
+        panel.classList.add('penalty-flash');
+
+        if (mode === 'competition') {
+            penaltyTimeAdded += PENALTY_SECONDS;
+            document.getElementById('penaltyCount').innerText = `${penaltyCount} 次 (+${penaltyCount * PENALTY_SECONDS}s)`;
+        } else {
+            document.getElementById('penaltyCount').innerText = `${penaltyCount} 次`;
+        }
+    }
+
+    function updateTimerDisplay() {
+        if (gameState !== 'RUNNING') return;
+        const now = Date.now();
+        let displayTime = (now - startTime) / 1000;
+        if (mode === 'competition') displayTime += penaltyTimeAdded;
+        document.getElementById('timer').innerText = displayTime.toFixed(2);
+    }
+
+    function finishGame() {
+        if (gameState === 'FINISHED') return;
+        gameState = 'FINISHED';
+        clearInterval(timerInterval);
+        document.getElementById('statusText').innerText = "🎉 挑戰成功！";
+        playSound('win');
+        stopSound('bgm');
+        
+        const runTime = (Date.now() - startTime) / 1000;
+        let finalScore = mode === 'competition' ? runTime + penaltyTimeAdded : runTime;
+        document.getElementById('timer').innerText = finalScore.toFixed(2);
+        showResultModal(finalScore);
+    }
+
+    function resetGame() {
+        gameState = 'IDLE';
+        clearInterval(timerInterval);
+        document.getElementById('timer').innerText = "00.00";
+        document.getElementById('penaltyCount').innerText = "0";
+        document.getElementById('statusText').innerText = isConnected ? "請觸碰起點以準備" : "等待連接...";
+        document.getElementById('finalMsg').style.display = 'none';
+        stopSound('bgm');
+    }
+    
+    function resetGameUI() {
+        document.getElementById('timer').innerText = "00.00";
+        document.getElementById('penaltyCount').innerText = "0";
+    }
+
+    // --- 彈窗與數據處理 ---
+    let currentFinalScore = 0;
+    function showResultModal(score) {
+        currentFinalScore = score;
+        const modal = document.getElementById('resultModal');
+        const scoreText = document.getElementById('modalScoreText');
+        if (mode === 'competition') {
+            scoreText.innerText = `最終成績: ${score.toFixed(2)} 秒\n(含罰時 ${penaltyTimeAdded} 秒)`;
+            document.getElementById('competitionInput').style.display = 'block';
+            document.getElementById('diyInput').style.display = 'none';
+        } else {
+            scoreText.innerText = `通關時間: ${score.toFixed(2)} 秒\n失誤次數: ${penaltyCount} 次`;
+            document.getElementById('competitionInput').style.display = 'none';
+            document.getElementById('diyInput').style.display = 'block';
+        }
+        modal.style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('resultModal').style.display = 'none'; resetGame(); }
+    
+    function saveScore() {
+        const name = document.getElementById('playerName').value.trim() || "無名英雄";
+        const record = { name: name, score: currentFinalScore, date: new Date().toLocaleTimeString() };
+        let leaderboard = JSON.parse(localStorage.getItem('dse_game_leaderboard') || "[]");
+        leaderboard.push(record);
+        leaderboard.sort((a, b) => a.score - b.score);
+        leaderboard = leaderboard.slice(0, 50);
+        localStorage.setItem('dse_game_leaderboard', JSON.stringify(leaderboard));
+        renderLeaderboard();
+        closeModal();
+    }
+
+    function renderLeaderboard() {
+        const tbody = document.getElementById('leaderboardBody');
+        const data = JSON.parse(localStorage.getItem('dse_game_leaderboard') || "[]");
+        tbody.innerHTML = data.slice(0, 10).map((item, index) => {
+            let rankClass = index < 3 ? `rank-${index+1}` : '';
+            return `<tr><td class="${rankClass}">${index + 1}</td><td style="font-weight:bold;">${escapeHtml(item.name)}</td><td>${item.score.toFixed(2)}s</td><td><button class="btn-delete" onclick="deleteScore(${index})" title="刪除">🗑️</button></td></tr>`;
+        }).join('');
+    }
+
+    function deleteScore(index) {
+        if(confirm("確定刪除？")) {
+            let leaderboard = JSON.parse(localStorage.getItem('dse_game_leaderboard') || "[]");
+            leaderboard.splice(index, 1);
+            localStorage.setItem('dse_game_leaderboard', JSON.stringify(leaderboard));
+            renderLeaderboard();
+        }
+    }
+    function clearLeaderboard() { if(confirm("確定清除所有紀錄？")) { localStorage.removeItem('dse_game_leaderboard'); renderLeaderboard(); } }
+    function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+    // --- 音效系統 (Web Audio API) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 440, type = 'sine', duration = 0.1) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.value = freq;
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+        osc.stop(audioCtx.currentTime + duration);
+    }
+    function playSound(id) {
+        const audio = document.getElementById('sound' + id.charAt(0).toUpperCase() + id.slice(1));
+        if (audio && audio.src && !audio.src.endsWith('html')) {
+             audio.currentTime = 0;
+             audio.play().catch(() => {
+                 if (id === 'fail') playBeep(150, 'sawtooth', 0.2);
+                 if (id === 'start') playBeep(880, 'sine', 0.1);
+                 if (id === 'win') { playBeep(523, 'square', 0.1); setTimeout(() => playBeep(659, 'square', 0.1), 100); setTimeout(() => playBeep(784, 'square', 0.4), 200); }
+             });
+        }
+    }
+    function stopSound(id) { const audio = document.getElementById('sound' + id.charAt(0).toUpperCase() + id.slice(1)); if (audio) { audio.pause(); audio.currentTime = 0; } }
+</script>
+
+</body>
+</html>
